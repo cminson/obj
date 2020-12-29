@@ -14,11 +14,11 @@ for x in ARGS
 
 
 const SCALE = 1
-const SUB_DIVISIONS = 1
+const SUB_DIVISIONS = 3
 const NAME = "SPHERE"
 const PHI = Float64((1 + sqrt(5)) / 2)   # golden ratio
 
-PATH_OBJ_FILE = "./test.obj"
+PATH_OBJ_FILE = "./dev1.obj"
 
 middle_point_cache = Dict()
 
@@ -60,7 +60,7 @@ end
 
 Verts = [ 
     vertex(-1.0, PHI, 0.0), 
-    vertex( 10.0, PHI, 0.0),
+    vertex( 1.0, PHI, 0.0),
     vertex(-1.0, -PHI, 0.0), 
     vertex( 1.0, -PHI, 0.0), 
     vertex(0.0, -1.0, PHI), 
@@ -74,7 +74,7 @@ Verts = [
 ]
 
 
-const FACES = [
+Faces = [
     # 5 faces around point 1
     [1, 12, 6], [1, 6, 2], [1, 2, 8], [1, 8, 11], [1, 11, 12],
     # Adjacent faces
@@ -88,9 +88,10 @@ const FACES = [
                                                    
 
 for i in 1:SUB_DIVISIONS
+    global Faces
 
     faces_subdiv = [] 
-    for tri in FACES 
+    for tri in Faces 
         #println(tri[1], tri[2])
         v1 = middle_point(tri[1], tri[2]) 
         v2 = middle_point(tri[2], tri[3]) 
@@ -100,28 +101,37 @@ for i in 1:SUB_DIVISIONS
         push!(faces_subdiv,([tri[3], v3, v2]))
         push!(faces_subdiv,([v1, v2, v3])) 
     end
-    faces = faces_subdiv
+    Faces = faces_subdiv
 
 end
 
 open(PATH_OBJ_FILE, "w+") do f
 
     write(f, "#\n#\n")
-    write(f, "# Object File Test\n")
+    write(f, "# Julia Object File Test\n")
     write(f, "#\n#\n")
     write(f, "o atomtest\n")
+
+    count = 1
     for verts in Verts
         x = round(verts[1], digits=6)
         y = round(verts[2], digits=6)
         z = round(verts[3], digits=6)
         write(f, "v $x $y $z\n")
+        count += 1
+    end
+
+    count = 1
+    for face in Faces
+        x = face[1]
+        y = face[2]
+        z = face[3]
+        #write(f, "f {x} {y} {z} #{count}\n")
+        write(f,"f $x $y $z\n")
+        count += 1
     end
 
 end
 
-for x in 1:2
-    println("X = $x")
-end
-                                                   
 
 println("DONE")
