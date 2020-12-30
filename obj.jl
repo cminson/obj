@@ -6,7 +6,7 @@
 #
 # Main
 #
-println("USD")
+println("OBJ")
 println(PROGRAM_FILE); 
 for x in ARGS 
     println(x); 
@@ -31,7 +31,6 @@ end
 
 function middle_point(point1, point2)
 
-    #println("$point1 $point2")
     # We check if we have already cut this edge first 
     # to avoid duplicated verts 
     smaller_index = min(point1, point2) 
@@ -47,7 +46,6 @@ function middle_point(point1, point2)
     vert2 = Verts[point2] 
     middle = [sum(i)/2 for i in zip(vert1, vert2)]
 
-    println("$vert1 $vert2 $middle")
     push!(Verts, vertex(middle[1], middle[2], middle[3]))
 
     len_verts = length(Verts)
@@ -84,6 +82,10 @@ Faces = [
     # Adjacent faces
     [5, 10, 6], [3, 5, 12], [7, 3, 11], [9, 7, 8], [10, 9, 2], 
 ]
+
+
+Normals = []
+FaceNormals = Dict()
                                                    
                                                    
 
@@ -105,6 +107,35 @@ for i in 1:SUB_DIVISIONS
 
 end
 
+#
+# calculate normals
+# 2x, 2y, 2z
+# divided by magntiude
+#
+for face in Faces
+    #println(face)
+    vert_index1 = face[1]
+
+    vert = Verts[vert_index1]
+    x = vert[1]
+    y = vert[2]
+    z = vert[3]
+
+    x_gradient = 2 * x
+    y_gradient = 2 * y
+    z_gradient = 2 * z
+    gradient_vector = [x_gradient, y_gradient, z_gradient]
+    magnitude = sqrt(x_gradient^2 + y_gradient^2 +  z_gradient^2)
+    unit_vector = gradient_vector / magnitude
+    #println(unit_vector)
+
+    push!(Normals, unit_vector)
+    FaceNormals[face] = length(Normals)
+
+end
+
+
+
 open(PATH_OBJ_FILE, "w+") do f
 
     write(f, "#\n#\n")
@@ -121,17 +152,30 @@ open(PATH_OBJ_FILE, "w+") do f
         count += 1
     end
 
+    for normal in Normals
+        x = round(normal[1], digits=6)
+        y = round(normal[2], digits=6)
+        z = round(normal[3], digits=6)
+        write(f,"vn $x $y $z\n")
+    end
+
     count = 1
     for face in Faces
+        normal_index = FaceNormals[face]
         x = face[1]
         y = face[2]
         z = face[3]
-        #write(f, "f {x} {y} {z} #{count}\n")
-        write(f,"f $x $y $z\n")
+        #write(f, "f $x $y $z\n")
+        write(f, "f $x $y $z #$count\n")
+        write(f,"f $x//$normal_index $y//$normal_index $z//$normal_index\n")
         count += 1
     end
 
 end
 
+
+count_faces = length(Faces)
+count_vertices = length(Verts)
+println("face count: $count_faces  vertex count: $count_vertices")
 
 println("DONE")
