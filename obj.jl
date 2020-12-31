@@ -3,13 +3,14 @@
 #using ArgParse
 
 const SCALE = 1
-const SUB_DIVISIONS = 4
+const SUB_DIVISIONS = 3
 const PHI = Float64((1 + sqrt(5)) / 2)   # golden ratio
 const PATH_OBJ_FILE = "./dev1.obj"
 
 
 mutable struct DisplayedObject
     name
+    material
     origin
     scale
     verts
@@ -26,23 +27,6 @@ function vertex(x::Float64, y::Float64, z::Float64)
     return [(i * SCALE) / len for i in (x,y,z)]
 end
 
-#=
-const VERTS = [ 
-    vertex(-1.0, PHI, 0.0), 
-    vertex( 1.0, PHI, 0.0),
-    vertex(-1.0, -PHI, 0.0), 
-    vertex( 1.0, -PHI, 0.0), 
-    vertex(0.0, -1.0, PHI), 
-    vertex(0.0, 1.0, PHI), 
-    vertex(0.0, -1.0, -PHI), 
-    vertex(0.0, 1.0, -PHI), 
-    vertex( PHI, 0.0, -1.0), 
-    vertex( PHI, 0.0, 1.0), 
-    vertex(-PHI, 0.0, -1.0), 
-    vertex(-PHI, 0.0, 1.0)
-]
-=#
-
 const VERTS = [ 
     [-1.0, PHI, 0.0], 
     [ 1.0, PHI, 0.0],
@@ -58,7 +42,6 @@ const VERTS = [
     [-PHI, 0.0, 1.0]
 ]
 
-
 const FACES = [
     # 5 faces around point 1
     [1, 12, 6], [1, 6, 2], [1, 2, 8], [1, 8, 11], [1, 11, 12],
@@ -70,25 +53,22 @@ const FACES = [
     [5, 10, 6], [3, 5, 12], [7, 3, 11], [9, 7, 8], [10, 9, 2], 
 ]
 
-for vert in VERTS
-    println(vert)
-    x = vertex(vert[1], vert[2], vert[3])
-    println(x)
-end
 
 #
 # Main
 #
+#=
 println(PROGRAM_FILE); 
 for x in ARGS 
     println(x); 
     end
+=#
 
 
-Sphere1 = DisplayedObject("sphere1", [0.0, 0.0, 0.0], 1.0, [], [], [])
+Sphere1 = DisplayedObject("sphere1", "shinyred", [0.0, 0.0, 0.0], 1.0, [], [], [])
 push!(ObjectList, Sphere1)
-#Sphere2 = DisplayedObject("sphere2", [1.0, 0.0, 0.0], 1.0, [], [], [])
-#push!(ObjectList, Sphere2)
+Sphere2 = DisplayedObject("sphere2", "shinyblue", [2.0, 0.0, 0.0], 1.1, [], [], [])
+push!(ObjectList, Sphere2)
 
 
 function middle_point(object, point1, point2)
@@ -123,11 +103,11 @@ function compute_geometry(object)
 
     # initialize to base shape
     object.faces = FACES 
-    #object.verts = broadcast(vertex(tmp, [vert + object.origin for vert in VERTS])
-    tmp = [vert + object.origin for vert in VERTS]
-    object.verts = [vertex(vert[1], vert[2], vert[3]) for vert in tmp]
+    tmp = [vert for vert in VERTS]
+    object.verts = [vertex(vert[1], vert[2], vert[3]) for vert in VERTS]
+    #println(object.verts)
 
-    # sub-divide from there
+    # sub-divide faces into more triangles, up to count SUB_DIVISIONS
     for i in 1:SUB_DIVISIONS
         faces_subdiv = [] 
         for tri in object.faces 
@@ -143,6 +123,7 @@ function compute_geometry(object)
         object.faces = faces_subdiv
     end
 
+    # calculate normals for each face
     for face in object.faces
         #println(face)
         vert_index = face[1]
@@ -175,50 +156,58 @@ for object in ObjectList
 end
 
 #
-# write the file
+# output the obj file
 #
+println("Output:  $PATH_OBJ_FILE")
 open(PATH_OBJ_FILE, "w+") do f
 
-    write(f, "#\n#\n")
-    write(f, "# Julia 3DObject File Test\n")
-    write(f, "#\n#\n")
-    write(f, "o atomtest\n")
+    total_objects = total_faces = total_normals = total_verts = 0
+
+    write(f, "# Julia 3DObject DEV \n")
+    write(f, "mtllib master.mtl\n")
 
     for object in ObjectList
-        count = 1
+
+        name = object.name
+        material = object.material
+        write(f, "o $name\n")
         for verts in object.verts
-            x = round(verts[1], digits=6)
+            x = round(verts[1], digits=6) +  object.origin[1]
             y = round(verts[2], digits=6)
             z = round(verts[3], digits=6)
             write(f, "v $x $y $z\n")
-            count += 1
         end
-
-        for normal in object.normals
+        
+        for normal in (object.normals)
             x = round(normal[1], digits=6)
             y = round(normal[2], digits=6)
             z = round(normal[3], digits=6)
             write(f,"vn $x $y $z\n")
         end
 
-        count = 1
+        write(f, "usemtl $material\n")
         for face in object.faces
-            normal_index = FaceNormals[face]
-            x = face[1]
-            y = face[2]
-            z = face[3]
+            normal_index = FaceNormals[face] + total_normals
+            x = face[1] + total_verts
+            y = face[2] + total_verts
+            z = face[3] + total_verts
             #write(f, "f $x $y $z\n")
-            write(f, "f $x $y $z #$count\n")
             write(f,"f $x//$normal_index $y//$normal_index $z//$normal_index\n")
-            count += 1
+            total_faces += 1
         end
 
-        count_faces = length(object.faces)
-        count_vertices = length(object.verts)
-        println("face count: $count_faces  vertex count: $count_vertices")
-    end
-end
+        object_face_count = length(object.faces)
+        object_vert_count = length(object.verts)
+        object_normals_count = length(object.normals)
+        object_name = object.name
+        println("object: object_name  faces: $object_face_count  vertices $object_vert_count  normals: $object_normals_count ")
 
+        total_normals += length(object.normals)
+        total_verts += length(object.verts)
+        total_objects += 1
+    end
+    println("total objects: $total_objects  total faces: $total_faces  total vertices: $total_verts  total normals: $total_normals ")
+end
 
 
 println("DONE")
