@@ -2,30 +2,40 @@
 
 #using ArgParse
 
+#=
+pm = picometer
+1 angstrom = 100 picometer
+O 152 pm
+=#
+
 const SCALE = 1
 const SUB_DIVISIONS = 3
 const PHI = Float64((1 + sqrt(5)) / 2)   # golden ratio
 const PATH_OBJ_FILE = "./dev1.obj"
+const HYDROGEN_DIAMETER = 25 #picometers
 
-
-mutable struct DisplayedObject
+mutable struct Atom
     name
-    material
     origin
-    scale
     verts
     normals
+    uvs
     faces
 end
 
-
-ObjectList = []
-
-function vertex(x::Float64, y::Float64, z::Float64)
-
-    len = sqrt(x^2 + y^2 + z^2)
-    return [(i * SCALE) / len for i in (x,y,z)]
+struct AtomAttributes
+    name
+    scale
+    material
 end
+
+
+DisplayedAtomsList = []
+AtomAttributesDict = Dict([
+    ("H", AtomAttributes("Hydrogen", 1.0, "shinyred"))
+    ("O", AtomAttributes("Oxygen", 53 / HYDROGEN_DIAMETER, "shinyblue"))
+    ])
+
 
 const VERTS = [ 
     [-1.0, PHI, 0.0], 
@@ -54,22 +64,13 @@ const FACES = [
 ]
 
 
-#
-# Main
-#
-#=
-println(PROGRAM_FILE); 
-for x in ARGS 
-    println(x); 
-    end
-=#
+function vertex(object::Atom, x::Float64, y::Float64, z::Float64)
 
-
-Sphere1 = DisplayedObject("sphere1", "shinyred", [0.0, 0.0, 0.0], 1.0, [], [], [])
-push!(ObjectList, Sphere1)
-Sphere2 = DisplayedObject("sphere2", "shinyblue", [2.0, 0.0, 0.0], 1.1, [], [], [])
-push!(ObjectList, Sphere2)
-
+    len = sqrt(x^2 + y^2 + z^2)
+    scale = AtomAttributesDict[object.name].scale
+    println(scale)
+    return [(i * scale) / len for i in (x,y,z)]
+end
 
 function middle_point(object, point1, point2)
 
@@ -88,7 +89,7 @@ function middle_point(object, point1, point2)
     vert2 = object.verts[point2] 
     middle = [sum(i)/2 for i in zip(vert1, vert2)]
 
-    push!(object.verts, vertex(middle[1], middle[2], middle[3]))
+    push!(object.verts, vertex(object, middle[1], middle[2], middle[3]))
 
     len_verts = length(object.verts)
     Middle_point_cache[key] = len_verts
@@ -104,7 +105,7 @@ function compute_geometry(object)
     # initialize to base shape
     object.faces = FACES 
     tmp = [vert for vert in VERTS]
-    object.verts = [vertex(vert[1], vert[2], vert[3]) for vert in VERTS]
+    object.verts = [vertex(object, vert[1], vert[2], vert[3]) for vert in VERTS]
     #println(object.verts)
 
     # sub-divide faces into more triangles, up to count SUB_DIVISIONS
@@ -144,40 +145,63 @@ function compute_geometry(object)
         FaceNormals[face] = length(object.normals)
     end
 
+    # calculate uv (texture) coords for each vertex
+    for vert in object.verts
+        u = vert[1]
+        v = vert[2]
+        push!(object.uvs, [u, v])
+    end
 end
 
 
-for object in ObjectList
+
+#
+# Main
+#=
+println(PROGRAM_FILE); 
+for x in ARGS 
+    println(x); 
+    end
+=#
+push!(DisplayedAtomsList, Atom("O", [0.0, 0.0, 0.0], [], [], [], []))
+push!(DisplayedAtomsList, Atom("H", [3.0, 0.0, 0.0], [], [], [], []))
+push!(DisplayedAtomsList, Atom("H", [0.0, 3.0, 0.0], [], [], [], []))
+
+for object in DisplayedAtomsList
     global Middle_point_cache
 
     Middle_point_cache = Dict()
     compute_geometry(object)
-
 end
 
-#
+
 # output the obj file
-#
 println("Output:  $PATH_OBJ_FILE")
 open(PATH_OBJ_FILE, "w+") do f
 
-    total_objects = total_faces = total_normals = total_verts = 0
+    total_objects = total_faces = total_normals = total_verts = total_uv = 0
 
     write(f, "# Julia 3DObject DEV \n")
     write(f, "mtllib master.mtl\n")
 
-    for object in ObjectList
+    for object in DisplayedAtomsList
 
         name = object.name
-        material = object.material
+        material = AtomAttributesDict[object.name].material
         write(f, "o $name\n")
         for verts in object.verts
-            x = round(verts[1], digits=6) +  object.origin[1]
-            y = round(verts[2], digits=6)
-            z = round(verts[3], digits=6)
+            x = round(verts[1], digits=6) + object.origin[1]
+            y = round(verts[2], digits=6) + object.origin[2]
+            z = round(verts[3], digits=6) + object.origin[3]
             write(f, "v $x $y $z\n")
         end
         
+        for uv in object.uvs
+            u = round(uv[1], digits=6)
+            v = round(uv[2], digits=6)
+            write(f, "vt $u $v\n")
+        end
+
         for normal in (object.normals)
             x = round(normal[1], digits=6)
             y = round(normal[2], digits=6)
@@ -191,8 +215,9 @@ open(PATH_OBJ_FILE, "w+") do f
             x = face[1] + total_verts
             y = face[2] + total_verts
             z = face[3] + total_verts
+
             #write(f, "f $x $y $z\n")
-            write(f,"f $x//$normal_index $y//$normal_index $z//$normal_index\n")
+            write(f,"f $x/$x/$normal_index $y/$y/$normal_index $z/$z/$normal_index\n")
             total_faces += 1
         end
 
@@ -204,6 +229,7 @@ open(PATH_OBJ_FILE, "w+") do f
 
         total_normals += length(object.normals)
         total_verts += length(object.verts)
+        total_uv += length(object.verts)
         total_objects += 1
     end
     println("total objects: $total_objects  total faces: $total_faces  total vertices: $total_verts  total normals: $total_normals ")
