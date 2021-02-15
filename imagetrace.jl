@@ -56,9 +56,6 @@ function get_next_point(current_point, cell)
 
             if distance < min_distance
                 min_distance = distance
-                #position_row = point.row + ((offset_row - 1) * SIZE_CELL)
-                #position_col = point.col + ((offset_col - 1) * SIZE_CELL)
-                #next_point = Point(position_row, position_col)
                 next_point = point
             end
         end
