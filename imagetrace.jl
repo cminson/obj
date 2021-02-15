@@ -12,29 +12,19 @@
 
 #using Pkg
 #Pkg.add("Images")
-
 using Images, ImageIO, FileIO
 
-const THRESHOLD = 0.5
-ErrorAccumulator = 0.0
-
-#=
-function halftone(pixel_value)
-
-    global ErrorAccumulator
-    #ErrorAccumulator = 0
-    pixel_value = pixel_value + ErrorAccumulator
-
-    if pixel_value < THRESHOLD
-        new_pixel_value = 0.0
-    else
-        new_pixel_value = 1.0
-    end
-
-    ErrorAccumulator = ErrorAccumulator + THRESHOLD - pixel_value
-    return new_pixel_value
+struct Point
+    row
+    col
 end
-=#
+
+const THRESHOLD = 0.5
+const SIZE_CELL = 16
+
+ErrorAccumulator = 0.0
+TraceCoordinates = []
+
 
 function halftone(pixel_value)
 
@@ -50,6 +40,36 @@ function halftone(pixel_value)
 
     ErrorAccumulator += THRESHOLD - pixel_value
     return new_pixel_value
+end
+
+
+function get_next_point(current_point, cell)
+
+    min_distance = 100000
+    next_point = current_point
+    
+    #println(cell)
+    for row in 1:SIZE_CELL
+        for col in 1:SIZE_CELL
+            #println(row," ", col)
+            if cell[row,col] == 0 
+                continue 
+            end
+            point = Point(row, col)
+            distance = sqrt((current_point.row - point.row)^2 + (current_point.col - point.col)^2)
+            #println("$distance $min_distance")
+
+            if distance < min_distance
+                min_distance = distance
+                #position_row = point.row + ((offset_row - 1) * SIZE_CELL)
+                #position_col = point.col + ((offset_col - 1) * SIZE_CELL)
+                #next_point = Point(position_row, position_col)
+                next_point = point
+                #println("New Point Found: $next_point")
+            end
+        end
+    end
+    return next_point
 end
 
 
@@ -70,10 +90,43 @@ path_output = replace(path_input, ".png" => ".txt")
 println("Converting $path_input ...")
     
 img = load(path_input)
+size_image = size(img)
+println(size_image)
 gray_image = Gray.(img)
 save("test01.png", gray_image)
 half_tone_image = halftone.(gray_image)
 save("test02.png", half_tone_image)
+
+cell_row_count = Int(floor(size_image[1] / SIZE_CELL))
+cell_col_count = Int(floor(size_image[2] / SIZE_CELL))
+println(cell_row_count, " ", cell_col_count)
+
+#
+# generate trace coordinates
+#
+CurrentPoint = Point(1,1)
+NextPoint = Point(1,1)
+print("1,1 ")
+for cell_row in 1:cell_row_count
+    for cell_col in 1:cell_col_count
+        row = ((cell_row - 1) * SIZE_CELL) + 1
+        col = ((cell_col - 1) * SIZE_CELL) + 1
+
+        cell = half_tone_image[row:row+SIZE_CELL-1,col:col+SIZE_CELL-1] 
+        if sum(cell) == 0 continue end  
+
+        for i in 1:SIZE_CELL*SIZE_CELL
+            cell[CurrentPoint.row,CurrentPoint.col] = 0 
+            global NextPoint = get_next_point(CurrentPoint, cell)
+            if NextPoint == CurrentPoint break end
+            global CurrentPoint = NextPoint
+            position_row = CurrentPoint.row + row
+            position_col = CurrentPoint.col + col
+            print("$position_row,$position_col ")
+            #println(CurrentPoint.row,",", CurrentPoint.col)
+        end
+    end
+end
 
 
 println("Output stored in $path_output")
