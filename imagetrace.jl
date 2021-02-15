@@ -22,7 +22,6 @@ const SIZE_CELL = 16
 const PATH_OUTPUT = "data.txt"
 
 ErrorAccumulator = 0.0
-TraceCoordinates = []
 
 
 # binary-tone an array
