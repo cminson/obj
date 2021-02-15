@@ -5,13 +5,11 @@
 #
 # ref: https://www.youtube.com/watch?t=137&v=OuCiHp43q20&feature=youtu.be
 # input: path to image (in png format)
-# output: text file with line trace coordinates
+# output: text file (trace.txt)with line trace coordinates
 #
 # author: Christopher Minson
 #
 
-#using Pkg
-#Pkg.add("Images")
 using Images, ImageIO, FileIO
 
 struct Point
@@ -21,11 +19,13 @@ end
 
 const THRESHOLD = 0.5
 const SIZE_CELL = 16
+const PATH_OUTPUT = "trace.txt"
 
 ErrorAccumulator = 0.0
 TraceCoordinates = []
 
 
+# binary-tone an array
 function halftone(pixel_value)
 
     global ErrorAccumulator
@@ -33,9 +33,9 @@ function halftone(pixel_value)
     pixel_value += ErrorAccumulator
 
     if pixel_value < THRESHOLD
-        new_pixel_value = 0.0
-    else
         new_pixel_value = 1.0
+    else
+        new_pixel_value = 0.0
     end
 
     ErrorAccumulator += THRESHOLD - pixel_value
@@ -43,12 +43,12 @@ function halftone(pixel_value)
 end
 
 
+# return point closest to current_point, in given cell
 function get_next_point(current_point, cell)
 
     min_distance = 100000
     next_point = current_point
     
-    #println(cell)
     for row in 1:SIZE_CELL
         for col in 1:SIZE_CELL
             #println(row," ", col)
@@ -57,7 +57,6 @@ function get_next_point(current_point, cell)
             end
             point = Point(row, col)
             distance = sqrt((current_point.row - point.row)^2 + (current_point.col - point.col)^2)
-            #println("$distance $min_distance")
 
             if distance < min_distance
                 min_distance = distance
@@ -65,7 +64,6 @@ function get_next_point(current_point, cell)
                 #position_col = point.col + ((offset_col - 1) * SIZE_CELL)
                 #next_point = Point(position_row, position_col)
                 next_point = point
-                #println("New Point Found: $next_point")
             end
         end
     end
@@ -104,9 +102,10 @@ println(cell_row_count, " ", cell_col_count)
 #
 # generate trace coordinates
 #
+output_fd = open(PATH_OUTPUT, "w+")
 CurrentPoint = Point(1,1)
 NextPoint = Point(1,1)
-print("1,1 ")
+write(output_fd,"1,1 ")
 for cell_row in 1:cell_row_count
     for cell_col in 1:cell_col_count
         row = ((cell_row - 1) * SIZE_CELL) + 1
@@ -122,12 +121,12 @@ for cell_row in 1:cell_row_count
             global CurrentPoint = NextPoint
             position_row = CurrentPoint.row + row
             position_col = CurrentPoint.col + col
-            print("$position_row,$position_col ")
-            #println(CurrentPoint.row,",", CurrentPoint.col)
+            write(output_fd,"$position_row,$position_col ")
         end
     end
 end
+close(output_fd)
 
 
-println("Output stored in $path_output")
+println("Output stored in $PATH_OUTPUT")
 println("Complete")
