@@ -5,7 +5,7 @@
 #
 # ref: https://www.youtube.com/watch?t=137&v=OuCiHp43q20&feature=youtu.be
 # input: path to image (in png format)
-# output: text file (trace.txt)with line trace coordinates
+# output: text file (PATH_OUTPUT) with line trace coordinates
 #
 # author: Christopher Minson
 #
@@ -19,7 +19,7 @@ end
 
 const THRESHOLD = 0.5
 const SIZE_CELL = 16
-const PATH_OUTPUT = "trace.txt"
+const PATH_OUTPUT = "data.txt"
 
 ErrorAccumulator = 0.0
 TraceCoordinates = []
@@ -46,15 +46,12 @@ end
 # return point closest to current_point, in given cell
 function get_next_point(current_point, cell)
 
-    min_distance = 100000
+    min_distance = typemax(Int32)
     next_point = current_point
     
     for row in 1:SIZE_CELL
         for col in 1:SIZE_CELL
-            #println(row," ", col)
-            if cell[row,col] == 0 
-                continue 
-            end
+            if cell[row,col] == 0 continue end
             point = Point(row, col)
             distance = sqrt((current_point.row - point.row)^2 + (current_point.col - point.col)^2)
 
@@ -85,19 +82,15 @@ if isfile(path_input) == false
     exit()
 end
 path_output = replace(path_input, ".png" => ".txt")
-println("Converting $path_input ...")
     
 img = load(path_input)
 size_image = size(img)
-println(size_image)
+println("Converting $path_input $size_image...")
 gray_image = Gray.(img)
-save("test01.png", gray_image)
 half_tone_image = halftone.(gray_image)
-save("test02.png", half_tone_image)
 
 cell_row_count = Int(floor(size_image[1] / SIZE_CELL))
 cell_col_count = Int(floor(size_image[2] / SIZE_CELL))
-println(cell_row_count, " ", cell_col_count)
 
 #
 # generate trace coordinates
