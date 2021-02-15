@@ -81,7 +81,6 @@ if isfile(path_input) == false
     println("ERROR:  image \"$path_input\" not found")
     exit()
 end
-path_output = replace(path_input, ".png" => ".txt")
     
 img = load(path_input)
 size_image = size(img)
