@@ -1,6 +1,8 @@
 #!/usr/local/bin/julia
 
 #using ArgParse
+using LinearAlgebra
+
 
 #=
 pm = picometer
@@ -68,7 +70,7 @@ function vertex(object::Atom, x::Float64, y::Float64, z::Float64)
 
     len = sqrt(x^2 + y^2 + z^2)
     scale = AtomAttributesDict[object.name].scale
-    println(scale)
+    #println(scale)
     return [(i * scale) / len for i in (x,y,z)]
 end
 
@@ -95,6 +97,19 @@ function middle_point(object, point1, point2)
     Middle_point_cache[key] = len_verts
 
     return len_verts
+
+end
+
+
+function angle_vectors(v1, v2)
+
+    magnitude1 = sqrt(v1[1]^2 + v1[2]^2 +  v1[3]^2)
+    magnitude2 = sqrt(v2[1]^2 + v2[2]^2 +  v2[3]^2)
+    magnitude = magnitude1 * magnitude2
+    dot_product = dot(v1, v2)
+    angle = rad2deg(acos(dot_product / (magnitude1 * magnitude2)))
+    #println("angle $v1 $v2 $dot_product $magnitude")
+    return floor(Int, angle)
 
 end
 
@@ -155,6 +170,7 @@ end
 
 
 
+
 #
 # Main
 #=
@@ -164,8 +180,8 @@ for x in ARGS
     end
 =#
 push!(DisplayedAtomsList, Atom("O", [0.0, 0.0, 0.0], [], [], [], []))
-push!(DisplayedAtomsList, Atom("H", [3.0, 0.0, 0.0], [], [], [], []))
-push!(DisplayedAtomsList, Atom("H", [0.0, 3.0, 0.0], [], [], [], []))
+#push!(DisplayedAtomsList, Atom("H", [3.0, 0.0, 0.0], [], [], [], []))
+#push!(DisplayedAtomsList, Atom("H", [0.0, 3.0, 0.0], [], [], [], []))
 
 for object in DisplayedAtomsList
     global Middle_point_cache
@@ -189,11 +205,15 @@ open(PATH_OBJ_FILE, "w+") do f
         name = object.name
         material = AtomAttributesDict[object.name].material
         write(f, "o $name\n")
+        first_vert = object.verts[1]
         for verts in object.verts
             x = round(verts[1], digits=6) + object.origin[1]
             y = round(verts[2], digits=6) + object.origin[2]
             z = round(verts[3], digits=6) + object.origin[3]
             write(f, "v $x $y $z\n")
+            #angle = angle_vectors([4, -3, 5], [9, 7, -10])
+            angle = angle_vectors(first_vert, verts)
+            println("angle: $angle")
         end
         
         for uv in object.uvs
